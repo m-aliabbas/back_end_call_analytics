@@ -5,3 +5,4 @@ __pycache__/
 call_analytics/
 *.zip
 *.txt
+!MED.zip 
