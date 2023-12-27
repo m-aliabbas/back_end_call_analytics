@@ -2,11 +2,16 @@ from Processor.LogProcessor import LogAnalytics
 from DataSource.Mongo_DB import Mongo_DB
 import requests
 import json
-import os
 import re
 import pandas as pd
 from collections import Counter
 import itertools
+import csv
+import tempfile
+import os
+from fastapi import FastAPI, Response
+from starlette.responses import FileResponse
+from datetime import datetime
 
 def cleanify(text):
     # Convert the text to lowercase
@@ -85,7 +90,8 @@ class LogInterface:
         self.DB_15 = Mongo_DB(address='mongodb://localhost:27017/',
                  db_name='call_analytics_tool',
                    collection_name='transfer_record',)
-    
+
+
     def insert_to_db(self,file_name,bot_dict):
         print("files_name: ",file_name)
         data = self.log_processor.driver(files_name=file_name,bot_dict = bot_dict)
@@ -268,6 +274,7 @@ class LogInterface:
                 new_dict["states"] = data["disposition_table"]["states"][i]
                 new_dict["area_state"] = data["disposition_table"]["area_state"][i]
                 new_dict["bot_specs"] = data["bot_specs"]
+                new_dict["flag"] = False
                 temp_13 = self.DB_5.insert(data=new_dict)
                 if temp_13:
                     print('Inserted merged')
@@ -309,7 +316,7 @@ class LogInterface:
                     newly_dict['valid_calls'] = merged_dict_1
                     disposition = self.DB_5.find_disposition(dat)
                     newly_dict['dispostion'] = self.count_words(disposition)
-                    temp_13 = current_db.insert(data=newly_dict)
+                    temp_13 = current_db.replace_insert(data=newly_dict)
                     if temp_13:
                         print(f'Inserted {dat}')
                     else:
@@ -321,7 +328,7 @@ class LogInterface:
                     newly_dict['valid_calls'] = merged_dict_2
                     disposition = self.DB_5.find_disposition(dat)
                     newly_dict['dispostion'] = self.count_words(disposition)
-                    temp_13 = current_db.insert(data=newly_dict)
+                    temp_13 = current_db.replace_insert(data=newly_dict)
                     if temp_13:
                         print(f'Inserted {dat}')
                     else:
@@ -364,7 +371,7 @@ class LogInterface:
                     if self.DB_3.check_if_exists_states(stated=stated):
                         print('Already exists states: ',stated)
                     else:
-                        temp_10 = self.DB_3.insert(data=stated)
+                        temp_10 = self.DB_3.replace_insert(data=stated)
                         if temp_10:
                             print('Inserted stated')
                         else:
@@ -411,7 +418,7 @@ class LogInterface:
         if self.DB_4.check_if_exists_states(stated=stated):
             print('Already exists states: ',stated)
         else:
-            temp_11 = self.DB_4.insert(data=stated)
+            temp_11 = self.DB_4.replace_insert(data=stated)
             if temp_11:
                 print('Inserted stated')
             else:
@@ -490,21 +497,6 @@ class LogInterface:
                 'states': States_new
             }
         }
-        df = pd.DataFrame(complete_data['disposition_table'])
-
-        if state != 'all':
-            # Select rows where the last value of the list in 'states' column is given state
-            selected_rows = df[df['states'].apply(lambda x: x[-1] if x else None) == state]
-            # Convert the selected rows to dictionary
-            dict_representation = selected_rows.to_dict()
-            complete_data['disposition_table'] = dict_representation
-            complete_data['disposition_table']['caller_id'] = complete_data['disposition_table']['caller_id'].values()
-            complete_data['disposition_table']['transcript'] = complete_data['disposition_table']['transcript'] .values()
-            complete_data['disposition_table']['disposition'] = complete_data['disposition_table']['disposition'] .values()
-            complete_data['disposition_table']['file_id'] = complete_data['disposition_table']['file_id'] .values()
-            complete_data['disposition_table']['states'] = complete_data['disposition_table']['states'] .values()
-
-        
         data_response = {"status": True, "data": complete_data, "msg": "data got"}
         return data_response
 
@@ -540,16 +532,90 @@ class LogInterface:
         return data
 
 
+    # def get_disposition_data(self,area_states, dispositions):
+    #     # Query the database and retrieve all records
+    #     columns_to_retrieve = ["caller_id", "disposition"]
+    #     data = self.DB_5.find_new_disposition(area_states, dispositions, cols=columns_to_retrieve)
+    #     data_response = {"status": True, "data": data, "msg": "data got"}
+    #     return data_response
+    
     def get_disposition_data(self,area_states, dispositions,area_exclude,disp_exclude):
         # Query the database and retrieve all records
-        columns_to_retrieve = ["caller_id", "disposition"]
+        columns_to_retrieve = ["caller_id", "disposition", "area_state"]
         print(disp_exclude,area_exclude)
         data = self.DB_5.find_new_disposition(area_states, dispositions,
                                               area_exclude=area_exclude,disp_exclude=disp_exclude,
                                                cols=columns_to_retrieve)
         data_response = {"status": True, "data": data, "msg": "data got"}
         return data_response
-    
+
+
+    def get_disposition_download_data(self,area_states, dispositions,area_exclude,disp_exclude):
+        # Query the database and retrieve all records
+        columns_to_retrieve = ["caller_id", "disposition", "area_state"]
+        data = self.DB_5.find_new_disposition(area_states, dispositions,
+                                        area_exclude=area_exclude,disp_exclude=disp_exclude,
+                                        cols=columns_to_retrieve)
+        # Get the current date and time
+        current_date = datetime.now().strftime("%d%m%Y_%H%M%S")
+
+
+        # Specify the CSV file path with the current date in the file name
+        csv_file_path = f"./temp_dispositions/disposition_data_{current_date}.csv"
+
+        # Define the CSV header
+        csv_header = ["caller_id", "disposition", "area_state"]
+
+        # Open the CSV file in write mode
+        with open(csv_file_path, mode="w", newline="") as csv_file:
+            # Create a CSV writer object
+            csv_writer = csv.writer(csv_file)
+
+            # Write the header to the CSV file
+            csv_writer.writerow(csv_header)
+
+            # Write each row of data to the CSV file
+            for entry in data:
+                row_data = [entry.get("caller_id", ""), entry.get("disposition", ""), entry.get("area_state", "")]
+                csv_writer.writerow(row_data)
+                # Update the "flag" field in the database for the current record
+                self.DB_5.update_flag(entry["_id"])  # Assuming "_id" is the unique identifier for each record
+        
+        return csv_file_path
+
+
+    def get_disposition_download_data_1(self,area_states, dispositions,area_exclude,disp_exclude):
+        # Query the database and retrieve all records
+        columns_to_retrieve = ["caller_id", "disposition", "area_state"]
+        data = self.DB_5.find_new_disposition(area_states, dispositions,
+                                        area_exclude=area_exclude,disp_exclude=disp_exclude,
+                                        cols=columns_to_retrieve)
+        # Get the current date and time
+        current_date = datetime.now().strftime("%d%m%Y_%H%M%S")
+
+
+        # Specify the CSV file path with the current date in the file name
+        csv_file_path = f"./temp_dispositions/disposition_data_{current_date}.csv"
+
+        # Define the CSV header
+        csv_header = ["caller_id", "disposition", "area_state"]
+
+        # Open the CSV file in write mode
+        with open(csv_file_path, mode="w", newline="") as csv_file:
+            # Create a CSV writer object
+            csv_writer = csv.writer(csv_file)
+
+            # Write the header to the CSV file
+            csv_writer.writerow(csv_header)
+
+            # Write each row of data to the CSV file
+            for entry in data:
+                row_data = [entry.get("caller_id", ""), entry.get("disposition", ""), entry.get("area_state", "")]
+                csv_writer.writerow(row_data)
+        
+        return csv_file_path
+
+
     def get_disposition_states_data(self,):
         # Query the database and retrieve all records
         columns_to_retrieve = ["disposition"]
@@ -558,6 +624,7 @@ class LogInterface:
         unique_states_list = list(unique_states)
         data_response = {"status": True, "data": unique_states_list, "msg": "data got"}
         return data_response
+
 
     def get_area_states_data(self,):
         # Query the database and retrieve all records

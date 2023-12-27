@@ -2,7 +2,7 @@ import requests
 import streamlit as st
 
 # Replace the URL with the actual URL of your API endpoint
-api_url_1 = "http://127.0.0.1:8000/get_dispositions"
+api_url_1 = "http://127.0.0.1:8000/get_download_dispositions_new"
 api_url_2 = "http://127.0.0.1:8000/get_disposition_states"
 api_url_3 = "http://127.0.0.1:8000/get_area_states"
 api_url_4 = "http://127.0.0.1:8000/get_counter_data/all"
@@ -10,8 +10,10 @@ api_url_5 = "http://127.0.0.1:8000/get_all_logs/all?start_index=20&num_rows=40"
 
 # Replace the payload with the data you want to send in the request
 payload = {
-    "area_states": ["Washington", "California"],
-    "dispositions": ["DNC", "NP"]
+    "area_states": ["Arizona","California"],
+    "dispositions": ["DNC"],
+    "area_exclude": False,
+    "disp_exclude": False,
 }
 
 # Make a POST request to the API
@@ -22,10 +24,8 @@ response_4 = requests.get(api_url_4,)
 response_5 = requests.get(api_url_5,)
 
 # Check if the request was successful (status code 200)
-if response_1.status_code == 200:
-    # Print the response data (assuming it's in JSON format)
-    st.write("Passing area states and disposition as parameters in api.")
-    st.write(response_1.json())
+if response_2.status_code == 200:
+
 
     # Print the response data (assuming it's in JSON format)
     st.write("Getting unique dispositions.")

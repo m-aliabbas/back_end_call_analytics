@@ -10,6 +10,10 @@ class Mongo_DB:
         x = self.collection.insert_one(data)
         return x
     
+    def replace_insert(self, data):
+        result = self.collection.replace_one({}, data, upsert=True)
+        return result
+    
     def check_if_exists(self,file_id):
         if self.collection.find_one(file_id) is None:
             return False
@@ -48,10 +52,31 @@ class Mongo_DB:
 
         return disposition_values
     
+    # def find_new_disposition(self, area_states, dispos, cols=[]):
+    #     query = {
+    #         "flag": False  # Add the condition for the "flag" field
+    #     }
 
+    #     if isinstance(dispos, list):
+    #         query["disposition"] = {"$in": dispos}
+    #     elif dispos.lower() != "all":
+    #         query["disposition"] = dispos
+
+    #     if area_states:
+    #         query["area_state"] = {"$in": area_states}
+
+    #     projection = {"area_state": 1}  # Include area_state in the projection
+    #     if cols:
+    #         projection.update({col: 1 for col in cols})  # Include additional columns in the projection
+
+    #     results = self.collection.find(query, projection)
+
+    #     return results
+    
     def find_new_disposition(self, area_states, dispos, area_exclude=False, disp_exclude=False, cols=[]):
-        query = {}
-
+        query = {
+            "flag": False  # Add the condition for the "flag" field
+        }
         # Add or invert condition for disposition if dispos is not empty
         if dispos:
             if isinstance(dispos, list):
@@ -81,9 +106,11 @@ class Mongo_DB:
         results = self.collection.find(query, projection)
 
         return results
-
-
     
+    def update_flag(self, record_id):
+        # Update the "flag" field to True for the given record ID
+        self.collection.update_one({"_id": record_id}, {"$set": {"flag": True}})
+
     def find_new_disposition_area(self, cols=[]):
         query = {}
         results = list(self.collection.find(query, projection={col: 1 for col in cols}))

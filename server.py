@@ -14,8 +14,13 @@ import time
 import os
 import zipfile
 from pydantic import BaseModel
-
+from fastapi import FastAPI, Response
+from starlette.responses import FileResponse
+import csv
+from io import StringIO
 app = FastAPI()
+from fastapi.responses import FileResponse
+from datetime import datetime
 
 
 def parse_json(data):
@@ -189,6 +194,18 @@ def get_current_states(state:str,):
     json_data = parse_json(data)
     return json_data
 
+# class DispositionRequest(BaseModel):
+#     area_states: List[str]
+#     dispositions: List[str]
+
+# @app.post("/get_dispositions")
+# def get_currenting_states(request: DispositionRequest):
+#     # write a method for it in log interface
+#     data = LogInterface.get_disposition_data(request.area_states, request.dispositions)
+#     data = {'data': data}
+#     json_data = parse_json(data)
+#     return json_data
+
 class DispositionRequest(BaseModel):
     area_states: List[str]
     dispositions: List[str]
@@ -203,6 +220,24 @@ def get_currenting_states(request: DispositionRequest):
     data = {'data': data}
     json_data = parse_json(data)
     return json_data
+
+@app.post("/get_download_dispositions")
+def get_currentings_states(request: DispositionRequest,response: Response):
+    # write a method for it in log interface
+    file_path = LogInterface.get_disposition_download_data(request.area_states, request.dispositions,
+                                             request.area_exclude,request.disp_exclude)
+    # Get the current date and time
+    current_date = datetime.now().strftime("%d-%m-%Y")
+    return FileResponse(file_path, filename=f"Diposition_Data_{current_date}.csv")
+
+@app.post("/get_download_dispositions_new")
+def get_currentings_states(request: DispositionRequest, response: Response):
+    # write a method for it in log interface
+    file_path = LogInterface.get_disposition_download_data_1(request.area_states, request.dispositions,
+                                                             request.area_exclude, request.disp_exclude)
+
+    current_date = datetime.now().strftime("%d-%m-%Y")
+    return FileResponse(file_path, filename=f"Diposition_Data_{current_date}.csv")
 
 
 @app.get("/get_area_states")
@@ -347,7 +382,7 @@ async def create_log_upload_files(files: List[UploadFile] = File(...),):
         # or pass 
         new_file_list = zip_extractor(file_path)
         new_file_list.pop(0)
-        LogInterface.empty_db()
+        # LogInterface.empty_db()
         for path in new_file_list:
             status,msg = LogInterface.insert_to_db([path],bot_dict)
             print(msg)
