@@ -117,8 +117,7 @@ class LogInterface:
 
     def new_insert_to_db(self,):
         # Fetching data from the database
-        data_lists = self.DB_1.find()
-        
+        data_lists = self.DB_1.find_processor()
         # Initializing counters and lists
         total_calls = 0
         valid_calls = 0
@@ -133,9 +132,10 @@ class LogInterface:
         filer_id = "" 
         # Iterate through a list of dictionaries called data_lists
         for data_list in data_lists:
-
+            self.DB_1.update_already_processed_flag(data_list["file_id"]) 
             # Get the 'file_id' value from the current dictionary; default to None if not found
             file_id = data_list.get('file_id', None)
+
             filer_id = file_id
             # If 'file_id' is None, skip this iteration
             if not file_id:
@@ -528,7 +528,7 @@ class LogInterface:
 
     def get_new_data(self,):
         # Query the database and retrieve all records
-        data = self.DB_5.find()
+        data = self.DB_1.find()
         return data
 
 
@@ -539,13 +539,15 @@ class LogInterface:
     #     data_response = {"status": True, "data": data, "msg": "data got"}
     #     return data_response
     
-    def get_disposition_data(self,area_states, dispositions,area_exclude,disp_exclude):
+    def get_disposition_data(self,area_states, dispositions,area_exclude,disp_exclude,
+                             start_index, num_rows):
         # Query the database and retrieve all records
         columns_to_retrieve = ["caller_id", "disposition", "area_state"]
         print(disp_exclude,area_exclude)
-        data = self.DB_5.find_new_disposition(area_states, dispositions,
+        data = self.DB_5.find_new_disposition_sliced(area_states, dispositions,
                                               area_exclude=area_exclude,disp_exclude=disp_exclude,
-                                               cols=columns_to_retrieve)
+                                               cols=columns_to_retrieve,start_index=start_index,
+                                                 num_rows=num_rows)
         data_response = {"status": True, "data": data, "msg": "data got"}
         return data_response
 

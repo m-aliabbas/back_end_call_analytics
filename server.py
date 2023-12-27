@@ -21,8 +21,7 @@ from io import StringIO
 app = FastAPI()
 from fastapi.responses import FileResponse
 from datetime import datetime
-
-
+from fastapi import Query
 def parse_json(data):
     return json.loads(json_util.dumps(data))
 
@@ -213,10 +212,12 @@ class DispositionRequest(BaseModel):
     disp_exclude: bool
 
 @app.post("/get_dispositions")
-def get_currenting_states(request: DispositionRequest):
+def get_currenting_states(request: DispositionRequest,start_index: int = Query(0, ge=0), 
+                          num_rows: int = Query(20, gt=0)):
     # write a method for it in log interface
     data = LogInterface.get_disposition_data(request.area_states, request.dispositions,
-                                             request.area_exclude,request.disp_exclude)
+                                             request.area_exclude,request.disp_exclude,
+                                             start_index=int(start_index),num_rows=int(num_rows))
     data = {'data': data}
     json_data = parse_json(data)
     return json_data

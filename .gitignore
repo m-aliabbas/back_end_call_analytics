@@ -6,3 +6,4 @@ call_analytics/
 *.zip
 *.txt
 !MED.zip 
+temp_dispositions/

@@ -14,10 +14,12 @@ class Mongo_DB:
         result = self.collection.replace_one({}, data, upsert=True)
         return result
     
-    def check_if_exists(self,file_id):
-        if self.collection.find_one(file_id) is None:
+    def check_if_exists(self, file_id):
+        query = {"file_id": file_id}  # Adjust the field name if necessary
+        if self.collection.find_one(query) is None:
             return False
         return True
+
     
     def check_if_exists_logs(self,file):
         if self.collection.find_one({ "caller_id": file }) is None:
@@ -35,6 +37,12 @@ class Mongo_DB:
         else:
             return list(self.collection.find({},cols))
         
+    def find_processor(self, file_id=None, cols=[]):
+        query = {"already_processed": False}
+        if file_id is not None:
+            query["file_id"] = file_id  # Adjust as per your schema
+        return list(self.collection.find(query, cols))
+
 
     def find_disposition(self, state, file_id=None, cols=[]):
         query = {}
@@ -72,6 +80,40 @@ class Mongo_DB:
     #     results = self.collection.find(query, projection)
 
     #     return results
+    def find_new_disposition_sliced(self, area_states, dispos, area_exclude=False, disp_exclude=False, cols=[],
+                                    start_index=0,num_rows=20):
+        query = {
+            "flag": False  # Add the condition for the "flag" field
+        }
+        # Add or invert condition for disposition if dispos is not empty
+        if dispos:
+            if isinstance(dispos, list):
+                if disp_exclude:
+                    query["disposition"] = {"$nin": dispos}
+                else:
+                    query["disposition"] = {"$in": dispos}
+            elif dispos.lower() != "all":
+                if disp_exclude:
+                    query["disposition"] = {"$ne": dispos}
+                else:
+                    query["disposition"] = dispos
+
+        # Add or invert condition for area_state if area_states is not empty
+        if area_states:
+            if area_exclude:
+                query["area_state"] = {"$nin": area_states}
+            else:
+                query["area_state"] = {"$in": area_states}
+
+        # Set up projection
+        projection = {"area_state": 1}  # Include area_state in the projection
+        if cols:
+            projection.update({col: 1 for col in cols})  # Include additional columns in the projection
+
+        # Execute query
+        results = self.collection.find(query, projection).skip(start_index).limit(num_rows)
+
+        return list(results)
     
     def find_new_disposition(self, area_states, dispos, area_exclude=False, disp_exclude=False, cols=[]):
         query = {
@@ -110,6 +152,10 @@ class Mongo_DB:
     def update_flag(self, record_id):
         # Update the "flag" field to True for the given record ID
         self.collection.update_one({"_id": record_id}, {"$set": {"flag": True}})
+
+    def update_already_processed_flag(self,record_id):
+        print('Incoming record ID',record_id)
+        self.collection.update_one({"file_id": record_id}, {"$set": {"already_processed": True}}) 
 
     def find_new_disposition_area(self, cols=[]):
         query = {}

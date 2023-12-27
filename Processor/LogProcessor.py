@@ -719,7 +719,12 @@ class LogAnalytics:
                 bot_dict["VM"] = file_name_without_extension
         # Display in One Dataframe
         try:
-            df_number_data = {"file_id":self.filings,"bot_specs":bot_dict, "Caller_ID":{self.filings:numbers}, "area_state":{self.filings:dict_area_state}, "Transcript":{self.filings:dict_trans},"states_number":{self.filings:dict_state}, "Disposition":{self.filings:dict_dis}, "AI None Separater":{self.filings:self.mergerd_dict}, "total_calls":self.total_calls, "valid_calls":self.valid_calls, "total_states": self.count_class, "call_drop": self.call_drop }
+            df_number_data = {"file_id":self.filings,"bot_specs":bot_dict,
+                               "Caller_ID":{self.filings:numbers}, "area_state":{self.filings:dict_area_state}, 
+                               "Transcript":{self.filings:dict_trans},"states_number":{self.filings:dict_state}, 
+                               "Disposition":{self.filings:dict_dis}, "AI None Separater":{self.filings:self.mergerd_dict}, 
+                               "total_calls":self.total_calls, "valid_calls":self.valid_calls, "total_states": self.count_class, 
+                               "call_drop": self.call_drop,'already_processed':False }
             self.number_data = df_number_data       
         except:
             pass 
